@@ -110,6 +110,86 @@ private key: 6f8b2ac98fc9b85698edb25a92c63c780bf76e2942aa353c62c3014db25bad63
 publikc key: 4d224753762cb5d3b71c6313516c7003f1af622dbbf2b848512ce3981e9cdf39cf09beba93bb01c72686d60a7fcf679a4eb5fa231e3d22b43ad397c3730c48e2
 ```
 
-Having the public key, then we can generate blockchain address by using the public key, first we need to bring two crats to our project in cargo
+Having the public key, then we can generate blockchain address by using the public key, first we need to bring two crats to our project in cargo,they are:
+ripemd160 = "0.9" and bs58 = "0.4"
+
+We need to hash public key and then encode it by using base58, then we need to execute the following steps:
+1, do sha256 hash on the x,y coordinates(32 bytes) of public key
+2, do repemd-160 hash on the result of step 1 and get 20 bytes as result
+3, add version byte in front of the result from step 2 {0x00 for mainnet}
+4, do sha256 hash on the result from step 3
+5, do sha256 hash on the result from step 4
+6, take the first 4 bytes on the result of step 5
+7, take the result of step 6 and append to the end of resultfrom step 3
+8, encode the result from step 7 with base58
+
+Let's see how to implement steps above by code as following:
+
+```rs
+pub fn new() -> Self {
+        let signing_key = SigningKey::random(&mut OsRng);
+        let verifying_key = signing_key.verifying_key().clone();
+        let mut address = String::new();
+        let mut gen_address = | | {
+            let key_points = verifying_key.to_encoded_point(false);
+            if let (Some(x), Some(y)) = (key_points.x(), key_points.y()) {
+                //sha256 hash on public key
+                let mut pub_key_bytes = Vec::with_capacity(x.len() + y.len());
+                pub_key_bytes.extend_from_slice(x);
+                pub_key_bytes.extend_from_slice(y);
+                let hash = Sha256::digest(&pub_key_bytes);
+                //ripemd160 hash on sha256 hash
+                let mut hasher = Ripemd160::new();
+                hasher.update(&hash); 
+                let mut hash_result = hasher.finalize().to_vec(); 
+                //add byte version in front of ripemd160 hash (0x00 for mainnet)
+                hash_result.insert(0, 0x00);
+                //do sha256 hash on the result
+                let hash2 = Sha256::digest(&hash_result);
+                //take the first 4 bytes  
+                let checksum = &hash2[0..4]; 
+                //add checksum adn the end of extended ripemd160 hash
+                let full_hash = [hash_result, checksum.to_vec()].concat();
+                //base58 encode the result
+                address = bs58::encode(full_hash).into_string()
+            } else {
+                address = String::new();
+            }
+        };
+        //generate blockchain address
+        gen_address();
+
+        Wallet {
+             signing_key,
+             verifying_key,
+             address,
+        }
+    }
+```
+Then we can test the above code in main.rs as following:
+
+```rs
+pub mod wallet;
+use wallet::Wallet; 
+
+fn main() {
+    let wallet = Wallet::new();
+    println!("private key: {}", wallet.private_key_str());
+    println!("publikc key: {}", wallet.public_key_str());
+    println!("address: {}", wallet.get_address()); 
+}
+
+```
+
+Running the above code I get the following result:
+
+```rs
+private key: 8941137127d175a388d7b290cc048c08b466c5e65519891f1728764f6e4de126
+publikc key: 67f83d3aec0c10028265be9e93cf4ba876ee228fbc62244c2d1925e85f3262ee3fd5a05b1a31bc27bb8ae5e6a6af9fedb2d4f28f5f39834f97dcd5268b963324
+address: 1ELqHR3nPaaoHg3Gkxnj63C5T8qp82y1Z6
+```
+
+The string of 1ELqHR... is the address of current wallet, since we generate the private key randomly, therefore each time we run the code we may get different result, but the address will always
+start with character '1'.
 
 
