@@ -114,13 +114,21 @@ Having the public key, then we can generate blockchain address by using the publ
 ripemd160 = "0.9" and bs58 = "0.4"
 
 We need to hash public key and then encode it by using base58, then we need to execute the following steps:
+
 1, do sha256 hash on the x,y coordinates(32 bytes) of public key
+
 2, do repemd-160 hash on the result of step 1 and get 20 bytes as result
+
 3, add version byte in front of the result from step 2 {0x00 for mainnet}
+
 4, do sha256 hash on the result from step 3
+
 5, do sha256 hash on the result from step 4
+
 6, take the first 4 bytes on the result of step 5
+
 7, take the result of step 6 and append to the end of resultfrom step 3
+
 8, encode the result from step 7 with base58
 
 Let's see how to implement steps above by code as following:
