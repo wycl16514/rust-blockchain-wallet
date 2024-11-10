@@ -154,8 +154,11 @@ pub fn new() -> Self {
                 hash_result.insert(0, 0x00);
                 //do sha256 hash on the result
                 let hash2 = Sha256::digest(&hash_result);
-                //take the first 4 bytes  
-                let checksum = &hash2[0..4]; 
+                //take the first 4 bytes
+
+                //do shash256 on the previous sha256 hash
+                let hash3 = Sha256::digest(&hash2); 
+                let checksum = &hash3[0..4]; 
                 //add checksum adn the end of extended ripemd160 hash
                 let full_hash = [hash_result, checksum.to_vec()].concat();
                 //base58 encode the result
